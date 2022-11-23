@@ -17,10 +17,28 @@ public class UserDaoHibernateImpl implements UserDao {
 
     @Override
     public void createUsersTable() {
-        // не те типы полей получаются: вместо bit(8) получается tinyint,
-        // вместо varchar(32) получается по умолчанию varchar(255)
-        // как задать тип поля в создаваемой таблице точно такой, какой хочу - не нашла
-        getAllUsers();
+
+        String sql = "CREATE TABLE IF NOT EXISTS user " +
+                "(id INTEGER NOT NULL AUTO_INCREMENT, " +
+                " name VARCHAR(32), " +
+                " lastname VARCHAR(32), " +
+                " age BIT(8), " +
+                " PRIMARY KEY ( id ))";
+        Transaction transactionObj;
+        try (Session sessionObj = sf.openSession()) {
+            transactionObj = sessionObj.beginTransaction();
+            NativeQuery query = sessionObj.createSQLQuery(sql);
+            try {
+                query.executeUpdate();
+                transactionObj.commit();
+            } catch (Exception e) {
+                if (transactionObj != null) {
+                    transactionObj.rollback();
+                }
+            }
+        } catch (HibernateException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -56,8 +74,15 @@ public class UserDaoHibernateImpl implements UserDao {
             User newUser = new User(name, lastName, age);
             try {
                 sessionObj.save(newUser);
-                transactionObj.commit();
-                System.out.println("\nSuccessfully Created '" + name);
+                long myId = newUser.getId();
+                User newUser1 = sessionObj.get(User.class,myId);
+                if (newUser1 != null) {
+                    transactionObj.commit();
+                    System.out.println("\nSuccessfully Created '" + name);
+                } else {
+                    transactionObj.rollback();
+                }
+
             } catch (Exception e) {
                 if (transactionObj != null) {
                     transactionObj.rollback();
@@ -73,9 +98,9 @@ public class UserDaoHibernateImpl implements UserDao {
         Transaction transactionObj;
         try (Session sessionObj = sf.openSession()) {
             transactionObj = sessionObj.beginTransaction();
-            User user = sessionObj.get(User.class, id);
+            User userRemove = sessionObj.get(User.class, id);
             try {
-                sessionObj.remove(user);
+                sessionObj.remove(userRemove);
                 transactionObj.commit();
             } catch (Exception e) {
                 if (transactionObj != null) {
